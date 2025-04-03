@@ -6,21 +6,21 @@ from sklearn.metrics import mean_squared_error
 from itertools import combinations
 
 # Load dataset
-df = pd.read_csv("task2_output.csv")  # Make sure this file exists
+df = pd.read_csv("task2_output.csv")
 df.columns = df.columns.str.strip()
 
 # Fill missing numeric values
 for col in df.select_dtypes(include='number').columns:
     df[col] = df[col].fillna(df[col].mean())
 
-# Convert categorical variables to numeric (including 'Population Size')
+# Convert categorical variables to numeric
 df = pd.get_dummies(df, drop_first=True)
 
 # Define features and target
 X = df.drop(columns=['Life expectancy'])
 y = df['Life expectancy']
 
-# Helper function: how many predictions fall outside ±10 years
+# Helper to check how many predictions fall outside ±10 years
 def check_within_error_lines(features, X, y, margin=10):
     X_subset = X[list(features)]
     X_train, X_test, y_train, y_test = train_test_split(X_subset, y, test_size=0.25, random_state=42)
@@ -31,25 +31,30 @@ def check_within_error_lines(features, X, y, margin=10):
     outside_bounds = np.sum(errors > margin)
     return outside_bounds, list(features)
 
-# Optimized loop: start with most important features and find the smallest set
-feature_names = list(X.columns)
+# Reduce feature search to top N features (ranked by correlation with target)
+top_n = 10
+correlations = X.corrwith(y).abs().sort_values(ascending=False)
+top_features = correlations.head(top_n).index.tolist()
+
 min_outside = float('inf')
 best_features = None
 
-for r in range(2, len(feature_names) + 1):
-    for combo in combinations(feature_names, r):
+# Try combinations of top N features
+for r in range(2, len(top_features) + 1):
+    for combo in combinations(top_features, r):
         outliers, used = check_within_error_lines(combo, X, y)
-        if outliers == 0:  # All predictions within ±10 years
+        print(f"Checking features: {used} => {outliers} outside ±10 years")
+        if outliers == 0:
             min_outside = outliers
             best_features = used
             break
     if best_features:
-        break  # Stop at first smallest set that satisfies condition
+        break
 
-# Output the best feature set
+# Final result output
 print("\n Task 7 Results:")
 if best_features:
     print("Minimum Features Needed:", len(best_features))
     print("Selected Features:", best_features)
 else:
-    print("❌ No subset found that keeps all predictions within ±10 years.")
+    print("No subset of top features found where all predictions fall within ±10 years.")
